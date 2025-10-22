@@ -1,0 +1,561 @@
+Algoritmo: Programación Genética (PG) según John Koza
+Autor: Conversión de implementación Python a pseudocódigo
+Fecha: 22 de octubre de 2025
+Descripción: Sistema que evoluciona expresiones matemáticas como árboles sintácticos
+
+==============================================================================
+ESTRUCTURA DE DATOS: NODO
+==============================================================================
+
+ESTRUCTURA Nodo
+  INICIO
+    valor: cadena o número real
+    hijos: lista de Nodo
+    es_terminal: booleano
+  FIN
+
+CONSTRUCTOR Nodo(valor, hijos_opcional)
+  INICIO
+    self.valor = valor
+    SI hijos_opcional es nulo ENTONCES
+      self.hijos = lista_vacía
+    SINO
+      self.hijos = hijos_opcional
+    FIN SI
+    self.es_terminal = (longitud(self.hijos) = 0)
+  FIN
+
+FUNCIÓN evaluar(self, x)
+  INICIO
+    SI self.es_terminal ENTONCES
+      SI self.valor = 'x' ENTONCES
+        RETORNAR x
+      SINO
+        RETORNAR convertir_a_numero(self.valor)
+      FIN SI
+    FIN SI
+    
+    // Es una función, evaluar hijos primero
+    valores_hijos = lista_vacía
+    PARA cada hijo EN self.hijos HACER
+      valor_hijo = hijo.evaluar(x)
+      agregar valor_hijo a valores_hijos
+    FIN PARA
+    
+    // Aplicar operación según el valor del nodo
+    INTENTAR
+      SI self.valor = '+' ENTONCES
+        RETORNAR valores_hijos[0] + valores_hijos[1]
+      SINO SI self.valor = '-' ENTONCES
+        RETORNAR valores_hijos[0] - valores_hijos[1]
+      SINO SI self.valor = '*' ENTONCES
+        RETORNAR valores_hijos[0] * valores_hijos[1]
+      SINO SI self.valor = '/' ENTONCES
+        SI valor_absoluto(valores_hijos[1]) < 0.000001 ENTONCES
+          RETORNAR 1.0  // Protección división por cero
+        SINO
+          RETORNAR valores_hijos[0] / valores_hijos[1]
+        FIN SI
+      SINO SI self.valor = 'sin' ENTONCES
+        RETORNAR seno(valores_hijos[0])
+      SINO SI self.valor = 'cos' ENTONCES
+        RETORNAR coseno(valores_hijos[0])
+      SINO SI self.valor = 'exp' ENTONCES
+        SI valores_hijos[0] > 100 ENTONCES
+          RETORNAR 1.0  // Protección overflow
+        SINO
+          RETORNAR exponencial(valores_hijos[0])
+        FIN SI
+      SINO
+        RETORNAR 1.0  // Función desconocida
+      FIN SI
+    CAPTURAR_ERROR
+      RETORNAR 1.0  // Error en evaluación
+    FIN INTENTAR
+  FIN
+
+FUNCIÓN copiar(self)
+  INICIO
+    hijos_copiados = lista_vacía
+    PARA cada hijo EN self.hijos HACER
+      hijo_copiado = hijo.copiar()
+      agregar hijo_copiado a hijos_copiados
+    FIN PARA
+    RETORNAR NUEVO Nodo(self.valor, hijos_copiados)
+  FIN
+
+FUNCIÓN convertir_a_cadena(self)
+  INICIO
+    SI self.es_terminal ENTONCES
+      RETORNAR convertir_a_texto(self.valor)
+    FIN SI
+    
+    cadena_hijos = ""
+    PARA cada hijo EN self.hijos HACER
+      cadena_hijo = hijo.convertir_a_cadena()
+      concatenar cadena_hijo a cadena_hijos con espacio
+    FIN PARA
+    
+    RETORNAR "(" + self.valor + " " + cadena_hijos + ")"
+  FIN
+
+==============================================================================
+CLASE PRINCIPAL: PROGRAMACIÓN GENÉTICA
+==============================================================================
+
+CLASE ProgramacionGenetica
+  INICIO
+    // Parámetros del algoritmo
+    tamaño_poblacion: entero
+    max_generaciones: entero
+    profundidad_maxima: entero
+    prob_cruce: número real
+    prob_mutacion: número real
+    tamaño_torneo: entero
+    
+    // Conjuntos de primitivas
+    funciones: lista de cadenas
+    aridad: diccionario de cadena -> entero
+    terminales: lista de cadenas o números
+    
+    // Datos del problema
+    datos_x: lista de números reales
+    datos_y: lista de números reales
+    
+    // Estado del algoritmo
+    poblacion: lista de Nodo
+    mejor_individuo: Nodo o nulo
+    mejor_fitness: número real
+    historial_fitness: lista de números reales
+  FIN
+
+CONSTRUCTOR ProgramacionGenetica(tamaño_pob, max_gen, prof_max, p_cruce, p_mut, tam_torneo)
+  INICIO
+    self.tamaño_poblacion = tamaño_pob
+    self.max_generaciones = max_gen
+    self.profundidad_maxima = prof_max
+    self.prob_cruce = p_cruce
+    self.prob_mutacion = p_mut
+    self.tamaño_torneo = tam_torneo
+    
+    // Definir conjunto de funciones
+    self.funciones = ['+', '-', '*', '/', 'sin', 'cos']
+    self.aridad = {'+': 2, '-': 2, '*': 2, '/': 2, 'sin': 1, 'cos': 1, 'exp': 1}
+    
+    // Definir conjunto de terminales
+    self.terminales = ['x']
+    PARA i = 1 HASTA 10 HACER
+      constante = generar_numero_aleatorio(-5.0, 5.0)
+      constante_redondeada = redondear(constante, 2)
+      agregar constante_redondeada a self.terminales
+    FIN PARA
+    
+    // Generar datos de entrenamiento (función objetivo: x² + 2x + 1)
+    self.datos_x = lista_vacía
+    self.datos_y = lista_vacía
+    PARA i = -50 HASTA 50 HACER
+      x_val = i * 0.1
+      y_val = x_val^2 + 2*x_val + 1
+      agregar x_val a self.datos_x
+      agregar y_val a self.datos_y
+    FIN PARA
+    
+    self.poblacion = lista_vacía
+    self.mejor_individuo = nulo
+    self.mejor_fitness = infinito
+    self.historial_fitness = lista_vacía
+  FIN
+
+FUNCIÓN generar_arbol_aleatorio(self, profundidad_max, metodo)
+  INICIO
+    SI profundidad_max <= 0 O (metodo = 'grow' Y numero_aleatorio(0,1) < 0.3) ENTONCES
+      // Crear terminal
+      terminal = seleccionar_aleatorio(self.terminales)
+      RETORNAR NUEVO Nodo(terminal)
+    FIN SI
+    
+    // Crear función
+    funcion = seleccionar_aleatorio(self.funciones)
+    aridad_funcion = self.aridad[funcion]
+    
+    hijos = lista_vacía
+    PARA i = 1 HASTA aridad_funcion HACER
+      hijo = self.generar_arbol_aleatorio(profundidad_max - 1, metodo)
+      agregar hijo a hijos
+    FIN PARA
+    
+    RETORNAR NUEVO Nodo(funcion, hijos)
+  FIN
+
+FUNCIÓN inicializar_poblacion(self)
+  INICIO
+    self.poblacion = lista_vacía
+    
+    // Método "ramped half-and-half" de Koza
+    PARA i = 0 HASTA self.tamaño_poblacion - 1 HACER
+      profundidad = generar_entero_aleatorio(2, self.profundidad_maxima)
+      
+      SI i es par ENTONCES
+        metodo = 'grow'
+      SINO
+        metodo = 'full'
+      FIN SI
+      
+      individuo = self.generar_arbol_aleatorio(profundidad, metodo)
+      agregar individuo a self.poblacion
+    FIN PARA
+  FIN
+
+FUNCIÓN calcular_fitness(self, individuo)
+  INICIO
+    error_total = 0.0
+    
+    PARA i = 0 HASTA longitud(self.datos_x) - 1 HACER
+      x_val = self.datos_x[i]
+      y_esperado = self.datos_y[i]
+      
+      INTENTAR
+        y_predicho = individuo.evaluar(x_val)
+        
+        SI y_predicho es NaN O y_predicho es infinito ENTONCES
+          y_predicho = 1000.0  // Penalizar valores inválidos
+        FIN SI
+        
+        error = (y_esperado - y_predicho)^2
+        error_total = error_total + error
+        
+      CAPTURAR_ERROR
+        error_total = error_total + 1000.0  // Penalizar errores
+      FIN INTENTAR
+    FIN PARA
+    
+    // Retornar error cuadrático medio
+    RETORNAR error_total / longitud(self.datos_x)
+  FIN
+
+FUNCIÓN seleccion_torneo(self)
+  INICIO
+    // Seleccionar individuos aleatorios para el torneo
+    torneo = lista_vacía
+    PARA i = 1 HASTA self.tamaño_torneo HACER
+      individuo_aleatorio = seleccionar_aleatorio(self.poblacion)
+      agregar individuo_aleatorio a torneo
+    FIN PARA
+    
+    // Encontrar el mejor del torneo
+    mejor = torneo[0]
+    mejor_fitness = self.calcular_fitness(mejor)
+    
+    PARA i = 1 HASTA longitud(torneo) - 1 HACER
+      fitness_actual = self.calcular_fitness(torneo[i])
+      SI fitness_actual < mejor_fitness ENTONCES
+        mejor = torneo[i]
+        mejor_fitness = fitness_actual
+      FIN SI
+    FIN PARA
+    
+    RETORNAR mejor.copiar()
+  FIN
+
+FUNCIÓN cruce_subtree(self, padre1, padre2)
+  INICIO
+    hijo1 = padre1.copiar()
+    hijo2 = padre2.copiar()
+    
+    // Obtener todos los nodos de cada árbol
+    nodos1 = self.obtener_todos_nodos(hijo1)
+    nodos2 = self.obtener_todos_nodos(hijo2)
+    
+    SI longitud(nodos1) > 1 Y longitud(nodos2) > 1 ENTONCES
+      // Seleccionar nodos aleatorios (evitar raíz si es posible)
+      SI longitud(nodos1) > 1 ENTONCES
+        nodo1 = seleccionar_aleatorio(nodos1[1:])
+      SINO
+        nodo1 = nodos1[0]
+      FIN SI
+      
+      SI longitud(nodos2) > 1 ENTONCES
+        nodo2 = seleccionar_aleatorio(nodos2[1:])
+      SINO
+        nodo2 = nodos2[0]
+      FIN SI
+      
+      // Intercambiar subárboles
+      valor_temp = nodo1.valor
+      hijos_temp = nodo1.hijos
+      terminal_temp = nodo1.es_terminal
+      
+      nodo1.valor = nodo2.valor
+      nodo1.hijos = nodo2.hijos
+      nodo1.es_terminal = nodo2.es_terminal
+      
+      nodo2.valor = valor_temp
+      nodo2.hijos = hijos_temp
+      nodo2.es_terminal = terminal_temp
+    FIN SI
+    
+    RETORNAR (hijo1, hijo2)
+  FIN
+
+FUNCIÓN mutacion_subtree(self, individuo)
+  INICIO
+    mutado = individuo.copiar()
+    nodos = self.obtener_todos_nodos(mutado)
+    
+    SI longitud(nodos) > 1 ENTONCES
+      // Seleccionar nodo aleatorio (evitar raíz si es posible)
+      SI longitud(nodos) > 1 ENTONCES
+        nodo_a_mutar = seleccionar_aleatorio(nodos[1:])
+      SINO
+        nodo_a_mutar = nodos[0]
+      FIN SI
+      
+      // Generar nuevo subárbol
+      profundidad_restante = generar_entero_aleatorio(1, 3)
+      nuevo_subarbol = self.generar_arbol_aleatorio(profundidad_restante, 'grow')
+      
+      // Reemplazar nodo
+      nodo_a_mutar.valor = nuevo_subarbol.valor
+      nodo_a_mutar.hijos = nuevo_subarbol.hijos
+      nodo_a_mutar.es_terminal = nuevo_subarbol.es_terminal
+    FIN SI
+    
+    RETORNAR mutado
+  FIN
+
+FUNCIÓN obtener_todos_nodos(self, raiz)
+  INICIO
+    nodos = [raiz]
+    PARA cada hijo EN raiz.hijos HACER
+      nodos_hijo = self.obtener_todos_nodos(hijo)
+      concatenar nodos_hijo a nodos
+    FIN PARA
+    RETORNAR nodos
+  FIN
+
+FUNCIÓN evolucionar(self)
+  INICIO
+    ESCRIBIR "Iniciando Programación Genética..."
+    ESCRIBIR "Función objetivo: y = x² + 2x + 1"
+    ESCRIBIR "Población: ", self.tamaño_poblacion, ", Generaciones: ", self.max_generaciones
+    ESCRIBIR "------------------------------------------------------------"
+    
+    // Inicializar población
+    self.inicializar_poblacion()
+    
+    PARA generacion = 0 HASTA self.max_generaciones - 1 HACER
+      
+      // Evaluar fitness de toda la población
+      fitness_poblacion = lista_vacía
+      PARA cada individuo EN self.poblacion HACER
+        fitness = self.calcular_fitness(individuo)
+        agregar (individuo, fitness) a fitness_poblacion
+      FIN PARA
+      
+      // Encontrar el mejor individuo de esta generación
+      mejor_actual_individuo = fitness_poblacion[0][0]
+      mejor_actual_fitness = fitness_poblacion[0][1]
+      
+      PARA i = 1 HASTA longitud(fitness_poblacion) - 1 HACER
+        SI fitness_poblacion[i][1] < mejor_actual_fitness ENTONCES
+          mejor_actual_individuo = fitness_poblacion[i][0]
+          mejor_actual_fitness = fitness_poblacion[i][1]
+        FIN SI
+      FIN PARA
+      
+      // Actualizar mejor global si es necesario
+      SI mejor_actual_fitness < self.mejor_fitness ENTONCES
+        self.mejor_fitness = mejor_actual_fitness
+        self.mejor_individuo = mejor_actual_individuo.copiar()
+      FIN SI
+      
+      agregar self.mejor_fitness a self.historial_fitness
+      
+      // Mostrar progreso cada 10 generaciones
+      SI (generacion módulo 10 = 0) O (generacion = self.max_generaciones - 1) ENTONCES
+        ESCRIBIR "Generación ", generacion, ": Mejor fitness = ", self.mejor_fitness
+        ESCRIBIR "Mejor expresión = ", self.mejor_individuo.convertir_a_cadena()
+      FIN SI
+      
+      // Criterio de parada: fitness muy bueno
+      SI self.mejor_fitness < 0.01 ENTONCES
+        ESCRIBIR "¡Solución encontrada en generación ", generacion, "!"
+        SALIR del bucle
+      FIN SI
+      
+      // Crear nueva población
+      nueva_poblacion = lista_vacía
+      
+      // Elitismo: conservar el mejor individuo
+      agregar self.mejor_individuo.copiar() a nueva_poblacion
+      
+      // Generar resto de la población
+      MIENTRAS longitud(nueva_poblacion) < self.tamaño_poblacion HACER
+        
+        SI numero_aleatorio(0,1) < self.prob_cruce ENTONCES
+          // Aplicar cruce
+          padre1 = self.seleccion_torneo()
+          padre2 = self.seleccion_torneo()
+          (hijo1, hijo2) = self.cruce_subtree(padre1, padre2)
+          
+          agregar hijo1 a nueva_poblacion
+          agregar hijo2 a nueva_poblacion
+        SINO
+          // Reproducción directa
+          individuo = self.seleccion_torneo()
+          agregar individuo a nueva_poblacion
+        FIN SI
+      FIN MIENTRAS
+      
+      // Aplicar mutación (saltar el individuo elite)
+      PARA i = 1 HASTA longitud(nueva_poblacion) - 1 HACER
+        SI numero_aleatorio(0,1) < self.prob_mutacion ENTONCES
+          nueva_poblacion[i] = self.mutacion_subtree(nueva_poblacion[i])
+        FIN SI
+      FIN PARA
+      
+      // Truncar población si es necesario
+      SI longitud(nueva_poblacion) > self.tamaño_poblacion ENTONCES
+        nueva_poblacion = nueva_poblacion[0:self.tamaño_poblacion]
+      FIN SI
+      
+      self.poblacion = nueva_poblacion
+    FIN PARA
+    
+    ESCRIBIR "------------------------------------------------------------"
+    ESCRIBIR "Evolución completada!"
+    ESCRIBIR "Mejor fitness final: ", self.mejor_fitness
+    ESCRIBIR "Mejor expresión: ", self.mejor_individuo.convertir_a_cadena()
+    
+    RETORNAR self.mejor_individuo
+  FIN
+
+FUNCIÓN probar_mejor_individuo(self, individuo, num_puntos)
+  INICIO
+    ESCRIBIR "Prueba del mejor individuo:"
+    ESCRIBIR "x    | Esperado | Predicho | Error"
+    ESCRIBIR "-------------------------------------"
+    
+    // Generar puntos de prueba aleatorios
+    puntos_prueba = lista_vacía
+    PARA i = 1 HASTA num_puntos HACER
+      punto = generar_numero_aleatorio(-3.0, 3.0)
+      agregar punto a puntos_prueba
+    FIN PARA
+    
+    ordenar puntos_prueba de menor a mayor
+    
+    PARA cada x EN puntos_prueba HACER
+      y_esperado = x^2 + 2*x + 1
+      y_predicho = individuo.evaluar(x)
+      error = valor_absoluto(y_esperado - y_predicho)
+      
+      ESCRIBIR x, " | ", y_esperado, " | ", y_predicho, " | ", error
+    FIN PARA
+  FIN
+
+==============================================================================
+FUNCIÓN PRINCIPAL
+==============================================================================
+
+FUNCIÓN principal()
+  INICIO
+    ESCRIBIR "======================================================================"
+    ESCRIBIR "PROGRAMACIÓN GENÉTICA - Ejemplo de John Koza"
+    ESCRIBIR "Evolución de expresiones matemáticas"
+    ESCRIBIR "======================================================================"
+    
+    // Configurar semilla para reproducibilidad (opcional)
+    establecer_semilla_aleatoria(42)
+    
+    // Crear instancia de PG con parámetros
+    pg = NUEVO ProgramacionGenetica(
+      tamaño_pob = 100,
+      max_gen = 50,
+      prof_max = 6,
+      p_cruce = 0.9,
+      p_mut = 0.1,
+      tam_torneo = 3
+    )
+    
+    // Ejecutar evolución
+    mejor_solucion = pg.evolucionar()
+    
+    // Probar la mejor solución
+    SI mejor_solucion no es nulo ENTONCES
+      pg.probar_mejor_individuo(mejor_solucion, 10)
+    SINO
+      ESCRIBIR "No se encontró una solución válida."
+    FIN SI
+    
+    ESCRIBIR "======================================================================"
+    ESCRIBIR "CONCEPTOS CLAVE DE LA PROGRAMACIÓN GENÉTICA:"
+    ESCRIBIR "======================================================================"
+    ESCRIBIR "• Representación: Árboles sintácticos (no cadenas binarias)"
+    ESCRIBIR "• Población inicial: Método 'ramped half-and-half'"
+    ESCRIBIR "• Selección: Torneo (mantiene diversidad)"
+    ESCRIBIR "• Cruce: Intercambio de subárboles"
+    ESCRIBIR "• Mutación: Reemplazo de subárboles"
+    ESCRIBIR "• Evaluación: Error en datos de entrenamiento"
+    ESCRIBIR "• Aplicaciones: Evolución de programas, funciones, etc."
+    ESCRIBIR "======================================================================"
+  FIN
+
+==============================================================================
+PUNTO DE ENTRADA DEL PROGRAMA
+==============================================================================
+
+SI este_es_el_archivo_principal ENTONCES
+  llamar principal()
+FIN SI
+
+==============================================================================
+NOTAS EXPLICATIVAS DETALLADAS:
+==============================================================================
+
+1. DIFERENCIAS CON ALGORITMOS GENÉTICOS TRADICIONALES:
+   - Representación: Árboles en lugar de cadenas binarias
+   - Operadores: Adaptados para estructuras arbóreas
+   - Longitud variable: Los árboles pueden crecer/decrecer
+   - Expresividad: Puede representar programas completos
+
+2. MÉTODO "RAMPED HALF-AND-HALF" (KOZA):
+   - Combina métodos 'grow' y 'full'
+   - 'full': todos los caminos tienen la misma profundidad
+   - 'grow': profundidad variable, mayor diversidad
+   - Crea población inicial balanceada
+
+3. CRUCE DE SUBÁRBOLES:
+   - Selecciona puntos aleatorios en cada padre
+   - Intercambia subárboles completos
+   - Mantiene validez sintáctica
+   - Puede cambiar drásticamente el comportamiento
+
+4. MUTACIÓN DE SUBÁRBOLES:
+   - Reemplaza subárbol completo por uno nuevo
+   - Introduce diversidad genética
+   - Previene convergencia prematura
+
+5. EVALUACIÓN Y FITNESS:
+   - Error cuadrático medio vs función objetivo
+   - Protección contra errores de evaluación
+   - Penalización de expresiones inválidas
+
+6. APLICACIONES TÍPICAS:
+   - Regresión simbólica
+   - Evolución de estrategias de juego
+   - Diseño automático de circuitos
+   - Generación de algoritmos
+   - Control automático
+
+7. VENTAJAS DE LA PG:
+   - No requiere conocimiento previo de la estructura
+   - Descubre relaciones no lineales complejas
+   - Produce soluciones interpretables
+   - Puede encontrar soluciones innovadoras
+
+8. DESAFÍOS DE LA PG:
+   - Crecimiento descontrolado (bloat)
+   - Convergencia lenta
+   - Ajuste de parámetros crítico
+   - Evaluación computacionalmente costosa

@@ -1,0 +1,191 @@
+Algoritmo: Algoritmo Genético para Optimización de Cadenas
+Autor: Conversión de código Python a pseudocódigo
+Fecha: 22 de octubre de 2025
+
+==============================================================================
+CLASE DNA
+==============================================================================
+
+CONSTRUCTOR DNA(objetivo, tasa_mutacion, n_individuos, n_seleccion, n_generaciones, verboso)
+  INICIO
+    self.objetivo = objetivo
+    self.tasa_mutacion = tasa_mutacion  
+    self.n_individuos = n_individuos
+    self.n_seleccion = n_seleccion
+    self.n_generaciones = n_generaciones
+    self.verboso = verboso
+  FIN
+
+FUNCIÓN crear_individuo(min = 0, max = 9)
+  INICIO
+    individuo = []
+    PARA i = 0 HASTA longitud(self.objetivo) - 1 HACER
+      numero_aleatorio = generar_entero_aleatorio(min, max)
+      agregar numero_aleatorio a individuo
+    FIN PARA
+    RETORNAR individuo
+  FIN
+
+FUNCIÓN crear_poblacion()
+  INICIO
+    poblacion = []
+    PARA i = 0 HASTA self.n_individuos - 1 HACER
+      individuo = crear_individuo()
+      agregar individuo a poblacion
+    FIN PARA
+    RETORNAR poblacion
+  FIN
+
+FUNCIÓN calcular_fitness(individuo)
+  INICIO
+    fitness = 0
+    PARA i = 0 HASTA longitud(individuo) - 1 HACER
+      SI individuo[i] = self.objetivo[i] ENTONCES
+        fitness = fitness + 1
+      FIN SI
+    FIN PARA
+    RETORNAR fitness
+  FIN
+
+FUNCIÓN seleccion(poblacion)
+  INICIO
+    puntuaciones = []
+    
+    // Calcular fitness de cada individuo
+    PARA cada individuo EN poblacion HACER
+      fitness = calcular_fitness(individuo)
+      agregar (fitness, individuo) a puntuaciones
+    FIN PARA
+    
+    // Ordenar por fitness de menor a mayor
+    ordenar puntuaciones por fitness ascendente
+    
+    // Extraer solo los individuos
+    individuos_ordenados = []
+    PARA cada (fitness, individuo) EN puntuaciones HACER
+      agregar individuo a individuos_ordenados
+    FIN PARA
+    
+    // Seleccionar los mejores (últimos en la lista ordenada)
+    seleccionados = []
+    inicio = longitud(individuos_ordenados) - self.n_seleccion
+    PARA i = inicio HASTA longitud(individuos_ordenados) - 1 HACER
+      agregar individuos_ordenados[i] a seleccionados
+    FIN PARA
+    
+    RETORNAR seleccionados
+  FIN
+
+FUNCIÓN reproduccion(poblacion, seleccionados)
+  INICIO
+    PARA i = 0 HASTA longitud(poblacion) - 1 HACER
+      // Elegir punto de cruce aleatorio
+      punto = generar_entero_aleatorio(1, longitud(self.objetivo) - 1)
+      
+      // Seleccionar dos padres aleatoriamente
+      padre1 = seleccionar_aleatorio(seleccionados)
+      padre2 = seleccionar_aleatorio(seleccionados)
+      
+      // Crear descendiente por cruce de un punto
+      PARA j = 0 HASTA punto - 1 HACER
+        poblacion[i][j] = padre1[j]
+      FIN PARA
+      
+      PARA j = punto HASTA longitud(self.objetivo) - 1 HACER
+        poblacion[i][j] = padre2[j]
+      FIN PARA
+    FIN PARA
+    
+    RETORNAR poblacion
+  FIN
+
+FUNCIÓN mutacion(poblacion)
+  INICIO
+    PARA i = 0 HASTA longitud(poblacion) - 1 HACER
+      numero_aleatorio = generar_numero_real_aleatorio(0, 1)
+      
+      SI numero_aleatorio <= self.tasa_mutacion ENTONCES
+        punto = generar_entero_aleatorio(0, longitud(self.objetivo) - 1)
+        nuevo_valor = generar_entero_aleatorio(0, 9)
+        
+        // Asegurar que el nuevo valor sea diferente al actual
+        MIENTRAS nuevo_valor = poblacion[i][punto] HACER
+          nuevo_valor = generar_entero_aleatorio(0, 9)
+        FIN MIENTRAS
+        
+        poblacion[i][punto] = nuevo_valor
+      FIN SI
+    FIN PARA
+    
+    RETORNAR poblacion
+  FIN
+
+FUNCIÓN ejecutar_algoritmo_genetico()
+  INICIO
+    poblacion = crear_poblacion()
+    
+    PARA generacion = 0 HASTA self.n_generaciones - 1 HACER
+      SI self.verboso = VERDADERO ENTONCES
+        ESCRIBIR "___________"
+        ESCRIBIR "Generación: ", generacion
+        ESCRIBIR "Población: ", poblacion
+        ESCRIBIR línea_vacía
+      FIN SI
+      
+      seleccionados = seleccion(poblacion)
+      poblacion = reproduccion(poblacion, seleccionados)
+      poblacion = mutacion(poblacion)
+    FIN PARA
+  FIN
+
+==============================================================================
+FUNCIÓN PRINCIPAL
+==============================================================================
+
+FUNCIÓN principal()
+  INICIO
+    objetivo = [1, 0, 0, 1, 1, 0, 0, 1]
+    
+    modelo = NUEVO DNA(
+      objetivo = objetivo,
+      tasa_mutacion = 0.5,
+      n_individuos = 500,
+      n_seleccion = 10,
+      n_generaciones = 50,
+      verboso = VERDADERO
+    )
+    
+    modelo.ejecutar_algoritmo_genetico()
+  FIN
+
+==============================================================================
+PUNTO DE ENTRADA DEL PROGRAMA
+==============================================================================
+
+SI este_es_el_archivo_principal ENTONCES
+  llamar principal()
+FIN SI
+
+==============================================================================
+NOTAS EXPLICATIVAS:
+==============================================================================
+
+1. OBJETIVO: Encontrar una cadena de números que coincida exactamente con 
+   el objetivo [1,0,0,1,1,0,0,1]
+
+2. PROCESO:
+   - Crear población inicial aleatoria
+   - Evaluar fitness (cuántos números coinciden con el objetivo)
+   - Seleccionar los mejores individuos
+   - Reproducir mediante cruce de un punto
+   - Aplicar mutación aleatoria
+   - Repetir por n generaciones
+
+3. PARÁMETROS:
+   - tasa_mutacion: Probabilidad de que ocurra una mutación (0.5 = 50%)
+   - n_individuos: Tamaño de la población (500)
+   - n_seleccion: Cuántos mejores individuos seleccionar (10)
+   - n_generaciones: Número de iteraciones del algoritmo (50)
+
+4. FITNESS: Cuenta cuántos genes coinciden exactamente con el objetivo
+   (fitness máximo = 8 para este ejemplo)
